@@ -1,9 +1,29 @@
-# Partiamo dall’immagine ufficiale di Passy Server
-FROM glitterware/passy-server:latest
+# Usa un'immagine ufficiale di Go per compilare l'app
+FROM golang:1.21 AS builder
 
-# Esponiamo la porta HTTPS standard
-EXPOSE 443
+# Imposta la directory di lavoro
+WORKDIR /app
 
-# L’immagine ufficiale avvia già il server con la variabile d'ambiente PASSY_*
-# quindi non serve CMD aggiuntivo se l’immagine è configurata correttamente.
+# Copia i file del server
+COPY ./server/ .
 
+# Scarica le dipendenze
+RUN go mod tidy
+
+# Compila il server Passy
+RUN go build -o passy-server .
+
+# Crea un'immagine più leggera per il runtime
+FROM debian:bookworm-slim
+
+# Imposta la directory di lavoro
+WORKDIR /app
+
+# Copia l'eseguibile dal builder
+COPY --from=builder /app/passy-server .
+
+# Espone la porta su cui il server Passy ascolta
+EXPOSE 3000
+
+# Comando di avvio
+CMD ["./passy-server"]
