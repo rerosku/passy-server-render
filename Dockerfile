@@ -1,17 +1,29 @@
-FROM node:20-alpine
+# Usa un'immagine ufficiale di Go per compilare l'app
+FROM golang:1.21 AS builder
 
+# Imposta la directory di lavoro
 WORKDIR /app
 
-# Clona solo la cartella server
-RUN apk add --no-cache git \
-    && git clone --depth=1 --filter=blob:none --sparse https://github.com/glitterware/passy.git . \
-    && git sparse-checkout init --cone \
-    && git sparse-checkout set server
+# Copia i file del server
+COPY ./server/ .
 
-WORKDIR /app/server
+# Scarica le dipendenze
+RUN go mod tidy
 
-RUN npm install --omit=dev
+# Compila il server Passy
+RUN go build -o passy-server .
 
-EXPOSE 3001
+# Crea un'immagine più leggera per il runtime
+FROM debian:bookworm-slim
 
-CMD ["node", "index.js"]
+# Imposta la directory di lavoro
+WORKDIR /app
+
+# Copia l'eseguibile dal builder
+COPY --from=builder /app/passy-server .
+
+# Espone la porta su cui il server Passy ascolta
+EXPOSE 3000
+
+# Comando di avvio
+CMD ["./passy-server"]
